@@ -4,13 +4,11 @@ from subprocess import Popen, PIPE
 from collections import defaultdict
 from os import path, remove
 
-MAX_OFFTARGETS = 1000
-
 def main():
     if len(argv) != 4 or not argv[2] in ['C', 'G', 'A', 'D']:
-        print("Cas-OFFinder-bulge v1.3 (2017-06-03)")
+        print("Cas-OFFinder-bulge v1.2 beta (2016-07-06)")
         print("")
-        print("Copyright (c) 2017 Jeongbin Park and Sangsu Bae")
+        print("Copyright (c) 2015 Jeongbin Park and Sangsu Bae")
         print("")
         print("Usage: cas-offinder-bulge {input_file} {C|G|A|D} {output_file}")
         print("(C: using CPUs, G: using GPUs, A: using accelerators, D: dry-run")
@@ -36,18 +34,6 @@ def main():
         with open(argv[1]) as f:
             chrom_path = f.readline()
             pattern, bulge_dna, bulge_rna = f.readline().strip().split()
-            pos_PAM=[0]
-            for i in range(len(pattern)):
-                if pattern[i]!='N':
-                    pos_PAM.append(i)
-            pattern_len=0
-            pattern_st=0
-            pattern_ed=0
-            for i in range(len(pos_PAM)-1):
-                if pos_PAM[i+1]-pos_PAM[i] > pattern_len:
-                    pattern_st=pos_PAM[i]+1
-                    pattern_ed=pos_PAM[i+1]
-                    pattern_len=pos_PAM[i+1]-pos_PAM[i]
             isreversed = False
             for i in range(int(len(pattern)/2)):
                 if pattern[i] == 'N' and pattern[len(pattern)-i-1] != 'N':
@@ -61,9 +47,8 @@ def main():
             rnabulge_dic = defaultdict(lambda: [])
             bg_tgts = defaultdict(lambda: set())
             for raw_target, mismatch in targets:
-                if pattern_ed > raw_target: pattern_ed = len(raw_target)
                 if isreversed:
-                    target = raw_target[pattern_st:pattern_ed].lstrip('N')
+                    target = raw_target.lstrip('N')
                     len_pam = len(raw_target) - len(target)
                     bg_tgts['N' * len_pam + target + 'N' * bulge_dna].add(mismatch)
                     for bulge_size in range(1, bulge_dna+1):
@@ -76,7 +61,7 @@ def main():
                             bg_tgts[bg_tgt].add(mismatch)
                             rnabulge_dic[bg_tgt].append( (i, int(mismatch), target[i:i+bulge_size]) )
                 else:
-                    target = raw_target[pattern_st:pattern_ed].rstrip('N')
+                    target = raw_target.rstrip('N')
                     len_pam = len(raw_target) - len(target)
                     bg_tgts['N' * bulge_dna + target + 'N' * len_pam].add(mismatch)
                     for bulge_size in range(1, bulge_dna+1):
@@ -106,13 +91,18 @@ def main():
             print(bg_tgts.items())
             print(rnabulge_dic.items())
             return
-        outfn = '-'
-        cnt_dic = defaultdict(lambda: 0)
+        outfn = fnhead+'_bulgeout.txt'
         print("Running Cas-OFFinder (output file: %s)..."%outfn)
-        p = Popen(['cas-offinder', fnhead+'_bulge.txt', argv[2], outfn], stdout=PIPE)
-        with open(argv[3], 'w') as fo:
+        p = Popen(['cas-offinder', fnhead+'_bulge.txt', argv[2], outfn])
+        ret = p.wait()
+        if ret != 0:
+            print ("Cas-OFFinder process was interrupted!")
+            exit(ret)
+
+        print("Processing output file...")
+        with open(outfn) as fi, open(argv[3], 'w') as fo:
             fo.write('#Bulge type\tcrRNA\tDNA\tChromosome\tPosition\tDirection\tMismatches\tBulge Size\n')
-            for line in p.stdout:
+            for line in fi:
                 entries = line.strip().split('\t')
                 res = []
                 ncnt = 0
@@ -136,14 +126,8 @@ def main():
                             tgt = (seq_pam + entries[0][len_pam:len_pam+pos] + seq + entries[0][len_pam+pos:-ncnt], entries[3][:len_pam+pos] + '-'*len(seq) + entries[3][len_pam+pos:-ncnt])
                         else:
                             tgt = (entries[0][ncnt:ncnt+pos] + seq + entries[0][ncnt+pos:-len_pam] + seq_pam, entries[3][ncnt:ncnt+pos] + '-'*len(seq) + entries[3][ncnt+pos:])
-                        h = tgt[0]+"\tRNA\t"+str(len(seq))+"\t"+entries[5]
-                        cnt_dic[h] += 1
                         if query_mismatch >= int(entries[5]):
-                            if cnt_dic[h] > MAX_OFFTARGETS:
-                                if cnt_dic[h] == MAX_OFFTARGETS + 1:
-                                    print("Warning: off-target of " + tgt[0] + " with mismatch " + entries[5] + " and RNA bulge size " + str(len(seq)) + " is found more than " + str(MAX_OFFTARGETS) + " times and discarded from output file." )
-                            else:
-                                fo.write('{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n'.format('RNA', tgt[0], tgt[1], entries[1], int(entries[2]) + (ncnt if (not isreversed and entries[4] == "+") or (isreversed and ncnt > 0 and entries[4] == "-") else 0), entries[4], int(entries[5]), len(seq)))
+                            fo.write('{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n'.format('RNA', tgt[0], tgt[1], entries[1], int(entries[2]) + (ncnt if (not isreversed and entries[4] == "+") or (isreversed and ncnt > 0 and entries[4] == "-") else 0), entries[4], int(entries[5]), len(seq)))
                 else:
                     bulge = 0
                     if isreversed:
@@ -160,21 +144,10 @@ def main():
                             elif bulge != 0:
                                 break
                         tgt = (entries[0][ncnt:][:-len_pam].replace('N', '-') + seq_pam, entries[3][ncnt:]) 
-                    h = tgt[0].replace('-', '')+"\t"+("X" if bulge == 0 else "DNA")+"\t"+str(bulge)+"\t"+entries[5]
-                    cnt_dic[h] += 1
-                    if cnt_dic[h] > MAX_OFFTARGETS:
-                        if cnt_dic[h] == MAX_OFFTARGETS + 1:
-
-                            print("Warning: off-target of " + tgt[0].replace('-', '') + " with mismatch " + entries[5] + ("" if bulge == 0 else " and DNA bulge size " + str(bulge)) + " is found more than " + str(MAX_OFFTARGETS) + " times and discarded from output file." )
-                    else:
-                        fo.write('{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n'.format('X' if bulge == 0 else 'DNA', tgt[0], tgt[1], entries[1], int(entries[2]) + (ncnt if (not isreversed and entries[4] == "+") or (isreversed and ncnt > 0 and entries[4] == "-") else 0), entries[4], int(entries[5]), bulge))
+                    fo.write('{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n'.format('X' if bulge == 0 else 'DNA', tgt[0], tgt[1], entries[1], int(entries[2]) + (ncnt if (not isreversed and entries[4] == "+") or (isreversed and ncnt > 0 and entries[4] == "-") else 0), entries[4], int(entries[5]), bulge))
 
         remove(fnhead + '_bulge.txt')
-
-        with open(fnhead + '_summary.txt', 'w') as fo:
-            fo.write("#Target\tBulge Type\tBulge Size\tMismatch\t# of found targets\n")
-            for k, cnt in sorted(cnt_dic.items()):
-                fo.write(k + '\t' + str(cnt) + '\n')
+        #remove(fnhead + '_bulgeout.txt')
         print("Done!")
 
 if __name__ == '__main__':
