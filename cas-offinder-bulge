@@ -120,28 +120,13 @@ def main():
                             ncnt += 1
                         else:
                             break
-                print(entries)
                 if entries[0] in rnabulge_dic:
-                    print(entries[0])
                     for pos, query_mismatch, seq in rnabulge_dic[entries[0]]:
-                        print(entries[0])
                         if isreversed:
                             tgt = (seq_pam + entries[0][len_pam:len_pam+pos] + seq + entries[0][len_pam+pos:-ncnt], entries[3][:len_pam+pos] + '-'*len(seq) + entries[3][len_pam+pos:-ncnt])
-                            print('1')
-                            print(tgt)
                         else:
-                            print(entries[0])
-                            print(ncnt)
-                            print(pos)
-                            print(len_pam)
-                            print(entries[0][ncnt:ncnt+pos])
-                            print(seq)
-                            print(entries[0][ncnt+pos:-len_pam])
                             tgt = (entries[0][ncnt:ncnt+pos] + seq + entries[0][ncnt+pos:-len_pam] + seq_pam, entries[3][ncnt:ncnt+pos] + '-'*len(seq) + entries[3][ncnt+pos:])
-                            print('2')
-                            print(tgt)
                         if query_mismatch >= int(entries[5]):
-                            print(tgt[0])
                             fo.write('{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n'.format('RNA', tgt[0], tgt[1], entries[1], int(entries[2]) + (ncnt if (not isreversed and entries[4] == "+") or (isreversed and ncnt > 0 and entries[4] == "-") else 0), entries[4], int(entries[5]), len(seq)))
                 else:
                     bulge = 0
