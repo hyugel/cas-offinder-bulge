@@ -1,3 +1,3 @@
-/home/baelab/Desktop/Genome/Human_GRCh38/
+/Genome/file/Directory/
 NNNNNNNNNNNNNNNNNNNNNGG 2 2
 TGCAGAATAGGAGGCAGGACNNN 2
