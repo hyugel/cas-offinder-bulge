@@ -146,7 +146,7 @@ def main():
                         tgt = (entries[0][ncnt:][:-len_pam].replace('N', '-') + seq_pam, entries[3][ncnt:]) 
                     fo.write('{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n'.format('X' if bulge == 0 else 'DNA', tgt[0], tgt[1], entries[1], int(entries[2]) + (ncnt if (not isreversed and entries[4] == "+") or (isreversed and ncnt > 0 and entries[4] == "-") else 0), entries[4], int(entries[5]), bulge))
 
-        #remove(fnhead + '_bulge.txt')
+        remove(fnhead + '_bulge.txt')
         #remove(fnhead + '_bulgeout.txt')
         print("Done!")
 
