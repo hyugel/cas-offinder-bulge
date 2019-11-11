@@ -8,4 +8,5 @@ the format of input file is
 /Directory/of/Genome/file
 
 NNNNNNNNNNNNNNNNNNNNNGG 2 1
+
 GGCCGACCTGTCGCTGACGCNNN 5
